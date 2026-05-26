@@ -1,13 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"net/http"
-	"encoding/json"
+	"os"
 
+	"backend/internal/auth"
 	"backend/internal/database"
+
 	"github.com/joho/godotenv"
 )
 
@@ -17,6 +19,7 @@ type HealthResponse struct {
 }
 
 func main() {
+
 	// Lädt die .env Datei (nur für lokale Entwicklung nötig, auf dem NAS macht das später Docker/K8s)
 	// Ignoriere den Fehler, falls die Datei nicht da ist (z.B. in der Produktion)
 	_ = godotenv.Load("../.env")
@@ -29,7 +32,7 @@ func main() {
 	dbName := os.Getenv("DB_NAME")
 
 	// Baue den dynamischen Verbindungs-String
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", 
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		dbUser, dbPass, dbHost, dbPort, dbName)
 
 	db, err := database.Connect(dsn)
@@ -43,6 +46,11 @@ func main() {
 	}
 
 	fmt.Println("Backend-Server läuft und ist bereit...")
+
+	webAuthInstance, err := auth.WebAuthnInitialize()
+	if err != nil {
+		log.Fatalf("Fehler bei WebAuthn-Initialisierung: %v\n", err)
+	}
 
 	mux := http.NewServeMux()
 
@@ -61,7 +69,21 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
+	mux.HandleFunc("/webauthn/register/start", auth.HandlerPasskeyCreateChallenge(webAuthInstance))
+	mux.HandleFunc("/webauthn/register/finish", auth.HandlerPasskeyValidateCreateChallengeResponse(webAuthInstance))
+	mux.HandleFunc("/webauthn/login/start", auth.HandlerPasskeyLoginChallenge(webAuthInstance))
+	mux.HandleFunc("/webauthn/login/finish", auth.HandlerPasskeyLoginChallengeResponse(webAuthInstance))
+
+	protectedMux := auth.EnableCORS(auth.TailscaleOnly(mux))
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: protectedMux, // Hier übergeben wir die Zwiebel an den Server
+	}
+
 	fmt.Println("Backend-Server läuft auf http://localhost:8080 ...")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("Fehler beim Starten des Servers: %v\n", err)
+	}
 
 }

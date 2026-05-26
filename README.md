@@ -17,8 +17,12 @@ A personal, customizable Cloud that works with any kind of Server. Uses Tailscal
 
 ## Database Connect
 
-| docker exec -it cloud-db psql -U postgres -d cloud_db
+| docker exec -it cloud_postgres psql -U postgres -d cloud_db
 
 ## Docker Compose Starten
 
 | docker compose up -d
+
+## Neue Migrations Erstellen
+
+migrate create -ext sql -dir internal/database/migrations -seq [Name]

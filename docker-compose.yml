@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine # Alpine ist eine extra kleine, ressourcenschonende Version
+    container_name: cloud_postgres
+    restart: always # Startet die DB auf dem NAS automatisch neu, wenn es Stromausfall gab
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      # Hier passiert die Magie: Der lokale Ordner ./db/data wird in den Container gemountet
+      - ./db/data:/var/lib/postgresql/data

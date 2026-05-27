@@ -92,33 +92,4 @@ func main() {
 		log.Fatal("Failed to start server:", err)
 	}
 
-	/*mux := http.NewServeMux()
-
-	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
-		// CORS-Header setzen (WICHTIG für die lokale Entwicklung!)
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-		w.Header().Set("Content-Type", "application/json")
-
-		// Daten vorbereiten
-		response := HealthResponse{
-			Status:  "ok",
-			Message: "Hallo von Go! Deine REST-API steht.",
-		}
-
-		// Als JSON an das Frontend schicken
-		json.NewEncoder(w).Encode(response)
-	})
-
-	protectedMux := handlers.EnableCORS(handlers.TailscaleOnly(mux))
-
-	server := &http.Server{
-		Addr:    ":8080",
-		Handler: protectedMux, // Hier übergeben wir die Zwiebel an den Server
-	}
-
-	fmt.Println("Backend-Server läuft auf http://localhost:8080 ...")
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal("Fehler beim Starten des Servers:", err)
-	}*/
-
 }

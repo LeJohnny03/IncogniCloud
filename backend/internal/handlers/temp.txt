@@ -1,0 +1,248 @@
+/*package auth
+
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"sync"
+	"time"
+
+	"backend/internal/database/dtos"
+
+	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/golang-jwt/jwt/v5"
+)
+
+// JWT Secret (Später in die .env Datei auslagern!)
+var jwtSecret = []byte("super-geheimes-nas-passwort-bitte-aendern")
+
+type User struct {
+	ID          int
+	Username    string
+	credentials []webauthn.Credential
+}
+
+func (u *User) WebAuthnID() []byte                         { return []byte(fmt.Sprintf("%d", u.ID)) }
+func (u *User) WebAuthnName() string                       { return u.Username }
+func (u *User) WebAuthnDisplayName() string                { return u.Username }
+func (u *User) WebAuthnCredentials() []webauthn.Credential { return u.credentials }
+
+func WebAuthnInitialize() (*webauthn.WebAuthn, error) {
+	config := &webauthn.Config{
+		RPDisplayName: "IncogniCloud",
+		RPID:          "localhost",
+		RPOrigins:     []string{"http://localhost:5173"},
+	}
+	return webauthn.New(config)
+}
+
+// -------------------------------------------------------------------------
+// NEU: SESSIONS (Challenge-Store & JWT Cookies)
+// -------------------------------------------------------------------------
+
+// Ersetzt die globale Variable durch eine Thread-sichere Map
+var challengeStore sync.Map
+
+// Generiert eine zufällige ID für den Challenge-Cookie
+func generateSecureID() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	return base64.URLEncoding.EncodeToString(b)
+}
+
+// Erstellt den JWT (Eintrittskarte) nach erfolgreichem Login
+func createAuthCookie(userID int, username string) *http.Cookie {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":  userID,
+		"username": username,
+		"exp":      time.Now().Add(time.Hour * 24 * 30).Unix(), // 30 Tage gültig
+	})
+	tokenString, _ := token.SignedString(jwtSecret)
+
+	return &http.Cookie{
+		Name:     "auth_token",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,  // JavaScript darf das Cookie nicht lesen (Schutz vor Hackern)
+		Secure:   false, // Auf true setzen, sobald dein NAS HTTPS hat!
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   86400 * 30,
+	}
+}
+
+// -------------------------------------------------------------------------
+// DATABASE LOADERS
+// -------------------------------------------------------------------------
+
+func (app *AuthApp) loadUser(userID int) (*User, error) {
+	dtoUser, err := dtos.LoadUserDTOFromId(app.DB, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	credDTOs, _ := dtos.LoadWebAuthnCredentialsByUserID(app.DB, dtoUser.ID)
+	var mappedCredentials []webauthn.Credential
+	for _, c := range credDTOs {
+		mappedCredentials = append(mappedCredentials, webauthn.Credential{
+			ID:        c.CredentialID,
+			PublicKey: c.PublicKey,
+		})
+	}
+
+	// FIX: Wir geben einen Pointer (&User) zurück!
+	return &User{
+		ID:          dtoUser.ID,
+		Username:    dtoUser.Username,
+		credentials: mappedCredentials,
+	}, nil
+}
+
+func (app *AuthApp) loadUserPasskey(rawID []byte, userHandle []byte) (webauthn.User, error) {
+	dtoUser, err := dtos.LoadUserDTOFromUserhandle(app.DB, userHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	credDTOs, _ := dtos.LoadWebAuthnCredentialsByUserID(app.DB, dtoUser.ID)
+	var mappedCredentials []webauthn.Credential
+	for _, c := range credDTOs {
+		mappedCredentials = append(mappedCredentials, webauthn.Credential{
+			ID:        c.CredentialID,
+			PublicKey: c.PublicKey,
+		})
+	}
+
+	// FIX: Wir geben einen Pointer (&User) zurück, damit .(*User) nicht abstürzt!
+	return &User{
+		ID:          dtoUser.ID,
+		Username:    dtoUser.Username,
+		credentials: mappedCredentials,
+	}, nil
+}
+
+// -------------------------------------------------------------------------
+// REGISTRATION HANDLERS
+// -------------------------------------------------------------------------
+
+func (app *AuthApp) HandlerPasskeyCreateChallenge() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		targetUserID := 1 // Hardcodiert für den Admin
+
+		user, err := app.loadUser(targetUserID)
+		if err != nil {
+			http.Error(rw, "User Error", http.StatusInternalServerError)
+			return
+		}
+
+		options, sessionData, err := app.WebAuthn.BeginRegistration(user)
+		if err != nil {
+			http.Error(rw, "Challenge Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Challenge sichern und ID per Cookie an Browser schicken
+		sessionID := generateSecureID()
+		challengeStore.Store(sessionID, sessionData)
+		http.SetCookie(rw, &http.Cookie{Name: "webauthn_challenge", Value: sessionID, Path: "/", MaxAge: 300})
+
+		rw.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(rw).Encode(options)
+	}
+}
+
+func (app *AuthApp) HandlerPasskeyValidateCreateChallengeResponse() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		// Cookie lesen und Challenge aus Store holen
+		cookie, err := r.Cookie("webauthn_challenge")
+		if err != nil {
+			http.Error(rw, "Challenge abgelaufen", http.StatusBadRequest)
+			return
+		}
+		sessionDataRaw, ok := challengeStore.LoadAndDelete(cookie.Value)
+		if !ok {
+			http.Error(rw, "Challenge nicht gefunden", http.StatusBadRequest)
+			return
+		}
+		sessionData := sessionDataRaw.(*webauthn.SessionData)
+
+		targetUserID := 1
+		user, _ := app.loadUser(targetUserID)
+
+		credential, err := app.WebAuthn.FinishRegistration(user, *sessionData, r)
+		if err != nil {
+			http.Error(rw, "Validierung fehlgeschlagen", http.StatusBadRequest)
+			return
+		}
+
+		if err := dtos.SaveNewPasskeyCredential(app.DB, user.ID, credential.ID, credential.PublicKey); err != nil {
+			http.Error(rw, "Speichern fehlgeschlagen", http.StatusInternalServerError)
+			return
+		}
+
+		rw.WriteHeader(http.StatusOK)
+	}
+}
+
+// -------------------------------------------------------------------------
+// LOGIN HANDLERS
+// -------------------------------------------------------------------------
+
+func (app *AuthApp) HandlerPasskeyLoginChallenge() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		assertion, sessionData, err := app.WebAuthn.BeginDiscoverableMediatedLogin(protocol.MediationDefault)
+		if err != nil {
+			http.Error(rw, "Login Challenge Error", http.StatusInternalServerError)
+			return
+		}
+
+		// Challenge sichern
+		sessionID := generateSecureID()
+		challengeStore.Store(sessionID, sessionData)
+		http.SetCookie(rw, &http.Cookie{Name: "webauthn_challenge", Value: sessionID, Path: "/", MaxAge: 300})
+
+		rw.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(rw).Encode(assertion)
+	}
+}
+
+func (app *AuthApp) HandlerPasskeyLoginChallengeResponse() http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("webauthn_challenge")
+		if err != nil {
+			http.Error(rw, "Challenge abgelaufen", http.StatusBadRequest)
+			return
+		}
+		sessionDataRaw, ok := challengeStore.LoadAndDelete(cookie.Value)
+		if !ok {
+			http.Error(rw, "Challenge nicht gefunden", http.StatusBadRequest)
+			return
+		}
+		sessionData := sessionDataRaw.(*webauthn.SessionData)
+
+		validatedUser, _, err := app.WebAuthn.FinishPasskeyLogin(app.loadUserPasskey, *sessionData, r)
+		if err != nil {
+			http.Error(rw, "Validierung fehlgeschlagen: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		fmt.Printf("WebAuthn Login erfolgreich! Validierter User: %+v\n", validatedUser.WebAuthnName())
+
+		// FIX: Der sichere Cast auf Pointer
+		user, ok := validatedUser.(*User)
+		if !ok || user == nil {
+			http.Error(rw, "Interner Fehler: Typ-Mismatch", http.StatusInternalServerError)
+			return
+		}
+
+		// SUCCESS! Wir stellen das "Bleib-Eingeloggt"-Cookie aus
+		authCookie := createAuthCookie(user.ID, user.Username)
+		http.SetCookie(rw, authCookie)
+
+		fmt.Printf("User %v hat sich erfolgreich eingeloggt. Session-Cookie gesetzt!\n", user.Username)
+		rw.WriteHeader(http.StatusOK)
+	}
+}
+*/

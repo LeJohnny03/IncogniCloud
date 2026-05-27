@@ -1,113 +1,226 @@
 <script lang="ts">
-    // 'create' ist für Registrierung, 'get' ist für den Login
-    import { create, get } from '@github/webauthn-json';
+    import {
+        base64urlDecode,
+        base64urlEncode
+    } from '$lib/utils/base64url';
+    // simple reactive variable for username
+    let regUsername = $state('');
+    let regDisplayName = $state('');
 
-    const state = $state({
-        statusMessage: "Bereit für den Test.",
-        isLoading: false
-    });
+    let authUsername = $state('');
 
-    // --- REGISTRIERUNG ---
-    async function registerPasskey() {
-        state.isLoading = true;
-        state.statusMessage = "Hole Challenge vom Server...";
-        
+    let result = $state('');
+
+    const API_BASE = 'http://localhost:8080/api';
+
+    async function register() {
         try {
-            // 1. Challenge vom Backend abholen
-            const responseStart = await fetch('http://localhost:8080/webauthn/register/start');
-            if (!responseStart.ok) throw new Error("Backend Fehler bei Start");
-            const options = await responseStart.json();
-
-            state.statusMessage = "Warte auf Fingerabdruck/FaceID...";
-            
-            // 2. Browser-Popup triggern (Wandelt Base64 automatisch in ArrayBuffer um!)
-            const credential = await create(options);
-
-            state.statusMessage = "Sende Passkey an Server...";
-
-            // 3. Ergebnis an Backend senden
-            const responseFinish = await fetch('http://localhost:8080/webauthn/register/finish', {
+            const beginResp = await fetch(`${API_BASE}/register/begin`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(credential)
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                    body: JSON.stringify({
+                        username: regUsername,
+                        display_name: regDisplayName
+                    })
             });
 
-            if (responseFinish.ok) {
-                state.statusMessage = "✅ Registrierung erfolgreich!";
-            } else {
-                throw new Error("Server hat den Passkey abgelehnt.");
+            const options = await beginResp.json();
+
+            options.publicKey.challenge = base64urlDecode(
+                options.publicKey.challenge
+            );
+
+            options.publicKey.user.id = base64urlDecode(
+                options.publicKey.user.id
+            );
+
+            const credential = (await navigator.credentials.create(
+                options
+            )) as PublicKeyCredential;
+
+            const response =
+                credential.response as AuthenticatorAttestationResponse;
+
+            const attestationResponse = {
+                id: credential.id,
+                rawId: base64urlEncode(credential.rawId),
+                type: credential.type,
+                response: {
+                    attestationObject: base64urlEncode(
+                        response.attestationObject
+                    ),
+                    clientDataJSON: base64urlEncode(
+                        response.clientDataJSON
+                    )
+                }
+            };
+
+            const finishResp = await fetch(`${API_BASE}/register/finish`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(attestationResponse)
+            });
+
+            if (!finishResp.ok) {
+                throw new Error('Registration failed');
             }
-        } catch (error: any) {
-            state.statusMessage = `❌ Fehler: ${error.message}`;
+
+            result = 'Registration successful!';
+        } catch (error) {
+            result = `Registration failed: ${(error as Error).message}`;
             console.error(error);
-        } finally {
-            state.isLoading = false;
         }
     }
 
-    // --- LOGIN ---
-    async function loginPasskey() {
-        state.isLoading = true;
-        state.statusMessage = "Hole Login-Challenge vom Server...";
-        
+    async function authenticate() {
         try {
-            // 1. Challenge vom Backend abholen
-            const responseStart = await fetch('http://localhost:8080/webauthn/login/start');
-            if (!responseStart.ok) throw new Error("Backend Fehler bei Login-Start");
-            const options = await responseStart.json();
-
-            state.statusMessage = "Warte auf Fingerabdruck/FaceID...";
-            
-            // 2. Browser-Popup triggern (WICHTIG: Hier nutzen wir get() statt create()!)
-            const assertion = await get(options);
-
-            state.statusMessage = "Prüfe Passkey auf dem Server...";
-
-            // 3. Ergebnis an Backend senden
-            const responseFinish = await fetch('http://localhost:8080/webauthn/login/finish', {
+            const beginResp = await fetch(`${API_BASE}/login/begin`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(assertion)
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    username: authUsername
+                })
             });
 
-            if (responseFinish.ok) {
-                state.statusMessage = "✅ Login erfolgreich! Willkommen zurück.";
-            } else {
-                throw new Error("Server hat den Login abgelehnt.");
+            const options = await beginResp.json();
+
+            options.publicKey.challenge = base64urlDecode(
+                options.publicKey.challenge
+            );
+
+            options.publicKey.allowCredentials =
+                options.publicKey.allowCredentials.map(
+                    (cred: PublicKeyCredentialDescriptor) => ({
+                        ...cred,
+                        id: base64urlDecode(cred.id as unknown as string)
+                    })
+                );
+
+            const assertion = (await navigator.credentials.get(
+                options
+            )) as PublicKeyCredential;
+
+            const response =
+                assertion.response as AuthenticatorAssertionResponse;
+
+            const assertionResponse = {
+                id: assertion.id,
+                rawId: base64urlEncode(assertion.rawId),
+                type: assertion.type,
+                response: {
+                    authenticatorData: base64urlEncode(
+                        response.authenticatorData
+                    ),
+                    clientDataJSON: base64urlEncode(
+                        response.clientDataJSON
+                    ),
+                    signature: base64urlEncode(response.signature),
+                    userHandle: response.userHandle
+                        ? base64urlEncode(response.userHandle)
+                        : null
+                }
+            };
+
+            const finishResp = await fetch(`${API_BASE}/login/finish`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(assertionResponse)
+            });
+
+            if (!finishResp.ok) {
+                throw new Error('Authentication failed');
             }
-        } catch (error: any) {
-            state.statusMessage = `❌ Fehler: ${error.message}`;
+
+            result = 'Login successful!';
+        } catch (error) {
+            result = `Login failed: ${(error as Error).message}`;
             console.error(error);
-        } finally {
-            state.isLoading = false;
         }
     }
 </script>
 
-<div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center font-sans">
-        
-        <h1 class="text-2xl font-bold mb-6 text-gray-800">Passkey Test-Labor</h1>
-        
-        <div class="space-y-4">
-            <button 
-                onclick={registerPasskey} 
-                disabled={state.isLoading}
-                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded disabled:opacity-50 transition-colors">
-                1. Passkey erstellen (Registrieren)
-            </button>
+<svelte:head>
+    <title>Passkey Authentication</title>
+</svelte:head>
 
-            <button 
-                onclick={loginPasskey} 
-                disabled={state.isLoading}
-                class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded disabled:opacity-50 transition-colors">
-                2. Mit Passkey einloggen
-            </button>
-        </div>
+<div class="container">
+    <h1>Passkey Authentication</h1>
 
-        <div class="mt-8 p-4 bg-gray-50 rounded border border-gray-200">
-            <p class="text-sm text-gray-600 font-mono wrap-break-word">{state.statusMessage}</p>
-        </div>
+    <section>
+        <h2>Register</h2>
 
-    </div>
+        <input
+            bind:value={regUsername}
+            type="text"
+            placeholder="Username"
+        />
+
+        <input
+            bind:value={regDisplayName}
+            type="text"
+            placeholder="Display Name"
+        />
+
+        <button onclick={register}>
+            Register Passkey
+        </button>
+    </section>
+
+    <section>
+        <h2>Login</h2>
+
+        <input
+            bind:value={authUsername}
+            type="text"
+            placeholder="Username"
+        />
+
+        <button onclick={authenticate}>
+            Login with Passkey
+        </button>
+    </section>
+
+    <p>{result}</p>
 </div>
+
+<style>
+    .container {
+        max-width: 500px;
+        margin: 2rem auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        font-family: sans-serif;
+    }
+
+    section {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+    }
+
+    input,
+    button {
+        padding: 0.75rem;
+        font-size: 1rem;
+    }
+
+    button {
+        cursor: pointer;
+    }
+</style>

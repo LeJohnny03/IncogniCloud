@@ -1,10 +1,10 @@
 package database
 
 import (
-	"database/sql"
 	"fmt"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
 
 	// NEU: Importiere golang-migrate und die benötigten Treiber
 	"github.com/golang-migrate/migrate/v4"
@@ -12,8 +12,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-func Connect(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("pgx", dsn)
+func Connect(dsn string) (*sqlx.DB, error) {
+	db, err := sqlx.Connect("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -27,9 +27,9 @@ func Connect(dsn string) (*sql.DB, error) {
 }
 
 // NEU: Diese Funktion führt die Migrationen aus
-func RunMigrations(db *sql.DB, dbName string) error {
+func RunMigrations(db *sqlx.DB, dbName string) error {
 	// Erstelle den Datenbank-Treiber für die Migration
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("fehler beim Erstellen des Migration-Treibers: %w", err)
 	}

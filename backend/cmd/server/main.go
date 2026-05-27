@@ -1,15 +1,16 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 
-	"backend/internal/auth"
+	"backend/internal/config"
 	"backend/internal/database"
+	"backend/internal/handlers"
 
+	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 )
 
@@ -35,24 +36,63 @@ func main() {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		dbUser, dbPass, dbHost, dbPort, dbName)
 
-	db, err := database.Connect(dsn)
+	db, err := sqlx.Connect("pgx", dsn)
 	if err != nil {
-		log.Fatalf("Fehler beim Verbinden: %v\n", err)
+		log.Fatal("Fehler beim Verbinden:", err)
 	}
 	defer db.Close()
 
 	if err := database.RunMigrations(db, dbName); err != nil {
-		log.Fatalf("Migrations-Fehler: %v\n", err)
+		log.Fatal("Migrations-Fehler:", err)
 	}
 
 	fmt.Println("Backend-Server läuft und ist bereit...")
 
-	webAuthInstance, err := auth.WebAuthnInitialize()
-	if err != nil {
-		log.Fatalf("Fehler bei WebAuthn-Initialisierung: %v\n", err)
+	store := database.NewStore(db)
+
+	webAuthnConfig := config.WebAuthnConfig{
+		RPDisplayName: "IncogniCloud", // Der Name deiner App
+		RPID:          "localhost",    // Normalerweise die Domain deiner App
+		RPOrigins:     []string{"https://localhost:5173"},
 	}
 
-	mux := http.NewServeMux()
+	wa, err := config.NewWebAuthn(webAuthnConfig)
+	if err != nil {
+		log.Fatal("Failed to create WebAuthn:", err)
+	}
+
+	registrationHandler := handlers.NewRegistrationHandler(wa, store)
+	authenticationHandler := handlers.NewAuthenticationHandler(wa, store)
+
+	r := gin.Default()
+
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://localhost:5173")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
+	api := r.Group("/api")
+	{
+		api.POST("/register/begin", registrationHandler.BeginRegistration)
+		api.POST("/register/finish", registrationHandler.FinishRegistration)
+		api.POST("/login/begin", authenticationHandler.BeginAuthentication)
+		api.POST("/login/finish", authenticationHandler.FinishAuthentication)
+	}
+
+	if err := r.Run(":8080"); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
+
+	/*mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		// CORS-Header setzen (WICHTIG für die lokale Entwicklung!)
@@ -69,12 +109,7 @@ func main() {
 		json.NewEncoder(w).Encode(response)
 	})
 
-	mux.HandleFunc("/webauthn/register/start", auth.HandlerPasskeyCreateChallenge(webAuthInstance))
-	mux.HandleFunc("/webauthn/register/finish", auth.HandlerPasskeyValidateCreateChallengeResponse(webAuthInstance))
-	mux.HandleFunc("/webauthn/login/start", auth.HandlerPasskeyLoginChallenge(webAuthInstance))
-	mux.HandleFunc("/webauthn/login/finish", auth.HandlerPasskeyLoginChallengeResponse(webAuthInstance))
-
-	protectedMux := auth.EnableCORS(auth.TailscaleOnly(mux))
+	protectedMux := handlers.EnableCORS(handlers.TailscaleOnly(mux))
 
 	server := &http.Server{
 		Addr:    ":8080",
@@ -83,7 +118,7 @@ func main() {
 
 	fmt.Println("Backend-Server läuft auf http://localhost:8080 ...")
 	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("Fehler beim Starten des Servers: %v\n", err)
-	}
+		log.Fatal("Fehler beim Starten des Servers:", err)
+	}*/
 
 }

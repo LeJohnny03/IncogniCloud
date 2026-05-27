@@ -53,7 +53,7 @@ func main() {
 	webAuthnConfig := config.WebAuthnConfig{
 		RPDisplayName: "IncogniCloud", // Der Name deiner App
 		RPID:          "localhost",    // Normalerweise die Domain deiner App
-		RPOrigins:     []string{"https://localhost:5173"},
+		RPOrigins:     []string{"http://localhost:5173"},
 	}
 
 	wa, err := config.NewWebAuthn(webAuthnConfig)
@@ -67,7 +67,7 @@ func main() {
 	r := gin.Default()
 
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "https://localhost:5173")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")

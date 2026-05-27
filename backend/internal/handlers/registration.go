@@ -106,6 +106,8 @@ func (h *RegistrationHandler) FinishRegistration(c *gin.Context) {
 		AAGUID:          credential.Authenticator.AAGUID,
 		SignCount:       int(credential.Authenticator.SignCount),
 		CloneWarning:    false,
+		BackupEligible:  credential.Flags.BackupEligible,
+		BackupState:     credential.Flags.BackupState,
 	}
 
 	if err := h.store.AddCredential(c.Request.Context(), dbCredential); err != nil {

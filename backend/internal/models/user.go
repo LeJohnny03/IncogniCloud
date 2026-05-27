@@ -52,6 +52,10 @@ func (u *User) WebAuthnCredentials() []webauthn.Credential {
 				SignCount:    uint32(cred.SignCount),
 				CloneWarning: cred.CloneWarning,
 			},
+			Flags: webauthn.CredentialFlags{
+				BackupEligible: cred.BackupEligible,
+				BackupState:    cred.BackupState,
+			},
 		}
 	}
 
@@ -66,6 +70,8 @@ type Credential struct {
 	AAGUID          []byte     `db:"aaguid" json:"aaguid"`
 	SignCount       int        `db:"sign_count" json:"sign_count"`
 	CloneWarning    bool       `db:"clone_warning" json:"clone_warning"`
+	BackupEligible  bool       `db:"backup_eligible" json:"backup_eligible"`
+	BackupState     bool       `db:"backup_state" json:"backup_state"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	LastUsedAt      *time.Time `db:"last_used_at" json:"last_used_at,omitempty"`
 }

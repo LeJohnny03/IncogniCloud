@@ -73,7 +73,7 @@ func (s *Store) GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User
 func (s *Store) GetUserCredentials(ctx context.Context, userID uuid.UUID) ([]models.Credential, error) {
 	var credentials []models.Credential
 	query := `
-        SELECT id, user_id, public_key, attestation_type, aaguid, sign_count, clone_warning, created_at, last_used_at
+        SELECT id, user_id, public_key, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state, created_at, last_used_at
         FROM credentials
         WHERE user_id = $1
         ORDER BY created_at DESC
@@ -89,8 +89,8 @@ func (s *Store) GetUserCredentials(ctx context.Context, userID uuid.UUID) ([]mod
 
 func (s *Store) AddCredential(ctx context.Context, cred *models.Credential) error {
 	query := `
-        INSERT INTO credentials (id, user_id, public_key, attestation_type, aaguid, sign_count, clone_warning)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO credentials (id, user_id, public_key, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `
 
 	_, err := s.db.ExecContext(ctx, query,
@@ -101,6 +101,8 @@ func (s *Store) AddCredential(ctx context.Context, cred *models.Credential) erro
 		cred.AAGUID,
 		cred.SignCount,
 		cred.CloneWarning,
+		cred.BackupEligible,
+		cred.BackupState,
 	)
 
 	return err
@@ -120,7 +122,7 @@ func (s *Store) UpdateCredential(ctx context.Context, credID []byte, signCount i
 func (s *Store) GetCredentialByID(ctx context.Context, credID []byte) (*models.Credential, error) {
 	var cred models.Credential
 	query := `
-        SELECT id, user_id, public_key, attestation_type, aaguid, sign_count, clone_warning, created_at, last_used_at
+        SELECT id, user_id, public_key, attestation_type, aaguid, sign_count, clone_warning, backup_eligible, backup_state, created_at, last_used_at
         FROM credentials
         WHERE id = $1
     `

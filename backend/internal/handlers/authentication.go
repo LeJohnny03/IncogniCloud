@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"backend/internal/database"
@@ -157,7 +158,9 @@ func (h *AuthenticationHandler) FinishAuthentication(c *gin.Context) {
 
 	if err != nil {
 
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication failed"})
+		fmt.Printf("WebAuthn FinishLogin Error: %v\n", err)
+
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication failed", "details": err.Error()})
 
 		return
 

@@ -155,3 +155,8 @@ func (h *AuthenticationHandler) FinishAuthentication(c *gin.Context) {
 	})
 
 }
+
+func (h *AuthenticationHandler) Logout(c *gin.Context) {
+	c.SetCookie("auth_session", "", -1, "/", "", true, true)
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}

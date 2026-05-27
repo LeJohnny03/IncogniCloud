@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"backend/internal/config"
@@ -110,6 +111,13 @@ func main() {
 		api.POST("/register/finish", registrationHandler.FinishRegistration)
 		api.POST("/login/begin", authenticationHandler.BeginAuthentication)
 		api.POST("/login/finish", authenticationHandler.FinishAuthentication)
+		api.POST("/logout", authenticationHandler.Logout)
+		api.GET("/health", func(c *gin.Context) {
+			c.JSON(http.StatusOK, HealthResponse{
+				Status:  "ok",
+				Message: "Server is healthy",
+			})
+		})
 	}
 
 	if err := r.Run(":8080"); err != nil {

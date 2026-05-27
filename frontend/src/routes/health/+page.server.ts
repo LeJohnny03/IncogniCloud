@@ -10,7 +10,7 @@ interface HealthResponse {
 
 export const load = async ({ fetch }) => {
     // Rufe das Go-Backend auf
-    const response = await fetch('http://localhost:8080/api/health');
+    const response = await fetch('/api/health');
 
     console.log("Response vom Backend:", response);
     

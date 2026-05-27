@@ -1,3 +1,50 @@
-@import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
+/* Importiere Tailwind (in v4 ersetzt das @tailwind base; etc.) */
+@import "tailwindcss";
+
+/* Konfiguriere Tailwind so, dass "dark:" Klassen auf unseren Toggle-Button hören */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Verbinde unsere eigenen CSS-Variablen mit Tailwind (ersetzt die tailwind.config.js) */
+@theme {
+  --color-background: var(--bg-color);
+  --color-surface: var(--surface-color);
+  --color-foreground: var(--text-color);
+  --color-foregroundMuted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primaryLight: var(--primary-light);
+  --color-accent: var(--accent);
+}
+
+@layer base {
+  /* HELLES THEME (Standard) */
+  :root {
+    --bg-color: #f8fafc;
+    --surface-color: #ffffff;
+    --text-color: #0f172a;
+    --text-muted: #64748b;
+    --primary: #3b82f6;
+    --primary-light: #93c5fd;
+    --accent: #60a5fa;
+  }
+
+  /* DUNKLES THEME (Aktiv wenn HTML die Klasse .dark hat) */
+  .dark {
+    --bg-color: #18181b;
+    --surface-color: #27272a;
+    --text-color: #f8fafc;
+    --text-muted: #a1a1aa;
+    --primary: #9333ea;
+    --primary-light: #c084fc;
+    --accent: #ffffff;
+  }
+}
+
+/* Setze die Standardwerte für den Body */
+@layer base {
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition-property: background-color, color;
+    transition-duration: 300ms;
+  }
+}

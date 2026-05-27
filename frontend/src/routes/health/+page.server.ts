@@ -1,5 +1,7 @@
 // frontend/src/routes/health/+page.server.ts
 
+import { API_BASE } from '$lib/api/api';
+
 // Wir definieren das TypeScript-Interface exakt so wie das Go-Struct!
 // Das ist unser Ersatz für OpenAPI/gRPC im klassischen REST.
 
@@ -10,7 +12,7 @@ interface HealthResponse {
 
 export const load = async ({ fetch }) => {
     // Rufe das Go-Backend auf
-    const response = await fetch('http://localhost:8080/api/health');
+    const response = await fetch(`${API_BASE}/health`);
 
     console.log("Response vom Backend:", response);
     

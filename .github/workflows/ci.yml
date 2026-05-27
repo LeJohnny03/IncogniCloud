@@ -53,7 +53,7 @@ jobs:
         with:
           node-version: '20' # Passend zu deinem Alpine-Container
           cache: 'npm'
-          cache-dependency-path: './frontend/package-lock.json'
+          cache-dependency-path: './frontend/package.json'
 
       - name: Abhängigkeiten installieren
         run: npm ci # Besser als npm install für CI-Umgebungen

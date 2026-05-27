@@ -1,0 +1,62 @@
+name: CI Pipeline
+
+# Wann soll die Pipeline starten?
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # Job 1: Das Go-Backend prüfen
+  build-backend:
+    name: Build Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend # Alle Befehle in diesem Ordner ausführen
+        
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Go einrichten
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x' # Passend zu der Anforderung deiner go.mod
+
+      - name: Abhängigkeiten herunterladen
+        run: go mod download
+
+      - name: Backend kompilieren
+        # Baut den Code, um sicherzustellen, dass es keine Syntax- oder Compiler-Fehler gibt
+        run: go build -v ./cmd/server
+
+      # Wenn du später Tests schreibst, entkommentiere diese Zeilen:
+      # - name: Backend Tests ausführen
+      #   run: go test -v ./...
+
+  # Job 2: Das SvelteKit-Frontend prüfen
+  build-frontend:
+    name: Build Frontend (Node.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend # Alle Befehle in diesem Ordner ausführen
+        
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Passend zu deinem Alpine-Container
+          cache: 'npm'
+          cache-dependency-path: './frontend/package.json'
+
+      - name: Abhängigkeiten installieren
+        run: npm ci # Besser als npm install für CI-Umgebungen
+
+      - name: SvelteKit App bauen
+        run: npm run build

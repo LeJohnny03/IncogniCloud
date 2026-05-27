@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import type { PageData } from './$types';
+    import { API_BASE } from '$lib/api/api';
 
     let { data }: { data: PageData } = $props();
     let isDark = $state(false);
@@ -24,7 +25,7 @@
     async function logout() {
         try {
             // Sende einen Request an das Backend, damit es das HttpOnly Cookie entfernt
-            await fetch('/api/logout', {
+            await fetch(`${API_BASE}/logout`, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -41,7 +42,7 @@
     
     <header class="flex justify-between items-center mb-12 max-w-5xl mx-auto">
         <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-primary text-white dark:bg-accent dark:text-background rounded-lg flex items-center justify-center shadow transition-colors duration-300">
+            <div class="w-10 h-10 bg-primary text-white dark:bg-primary rounded-lg flex items-center justify-center shadow transition-colors duration-300">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
                 </svg>

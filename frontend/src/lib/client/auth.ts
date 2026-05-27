@@ -1,6 +1,5 @@
+import { API_BASE } from '$lib/api/api';
 import { base64urlDecode, base64urlEncode } from '$lib/utils/base64url';
-
-const API_BASE = '/api';
 
 export async function loginWithPasskey(username: string): Promise<void> {
     const beginResp = await fetch(`${API_BASE}/login/begin`, {

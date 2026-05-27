@@ -1,5 +1,5 @@
 # Build-Stage
-FROM node:20-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
@@ -9,7 +9,7 @@ COPY . .
 RUN npm run build
 
 # Run-Stage
-FROM node:20-alpine
+FROM node:26-alpine
 WORKDIR /app
 
 COPY --from=builder /app/build build/

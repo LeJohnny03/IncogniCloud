@@ -51,7 +51,7 @@ jobs:
       - name: Node.js einrichten
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Passend zu deinem Alpine-Container
+          node-version: '26' # Passend zu deinem Alpine-Container
           cache: 'npm'
           cache-dependency-path: './frontend/package-lock.json'
 

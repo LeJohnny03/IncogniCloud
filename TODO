@@ -1,0 +1,4 @@
+- Sobald die Anwendung fertig ist und auf dem NAS läuft, muss auf dem NAS ein Reverse Proxy installiert werden (bsp. Caddy oder Nginx Proxy Manager), auf einem seperaten Container
+    - Dieser Proxy lauscht auf Port 80/443, übernimmt die Tailscale-Domain und leitet den Traffic auf den incognicloud_frontend Container (Port 3000) weiter.
+        - Das Backend (Port 8080) muss ab dem Punkt auch nicht mehr ins Netz gestellt werden, da der Proxy die /api/ Routen direkt intern an das Backend weiterleiten kann.
+

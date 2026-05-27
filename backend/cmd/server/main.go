@@ -32,6 +32,21 @@ func main() {
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 
+	frontendURL := os.Getenv("FRONTEND_URL")
+	domain := os.Getenv("DOMAIN")
+	if domain == "" {
+		domain = "localhost"
+	}
+
+	allowedOrigins := []string{
+		"http://localhost:5173",
+		"http://localhost:3000",
+	}
+
+	if frontendURL != "" {
+		allowedOrigins = append(allowedOrigins, frontendURL)
+	}
+
 	// Baue den dynamischen Verbindungs-String
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		dbUser, dbPass, dbHost, dbPort, dbName)
@@ -52,8 +67,8 @@ func main() {
 
 	webAuthnConfig := config.WebAuthnConfig{
 		RPDisplayName: "IncogniCloud", // Der Name deiner App
-		RPID:          "localhost",    // Normalerweise die Domain deiner App
-		RPOrigins:     []string{"http://localhost:5173"},
+		RPID:          domain,         // RPID muss zwingend mit der Domain übereinstimmen!
+		RPOrigins:     allowedOrigins,
 	}
 
 	wa, err := config.NewWebAuthn(webAuthnConfig)
@@ -67,7 +82,16 @@ func main() {
 	r := gin.Default()
 
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+
+		origin := c.Request.Header.Get("Origin")
+
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")

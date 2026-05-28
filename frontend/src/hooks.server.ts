@@ -17,8 +17,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 };*/
 
 import { API_BASE } from '$lib/api/api';
-import { BACKEND_INTERNAL_URL } from '$env/static/private';
-import { redirect, type Handle } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private'
+import { redirect, isRedirect, type Handle } from '@sveltejs/kit';
 
 export const handle: Handle = async ({ event, resolve }) => {
     const session = event.cookies.get('auth_session');
@@ -31,7 +31,10 @@ export const handle: Handle = async ({ event, resolve }) => {
     try {
         // Da wir im Server-Hook sind, nutzen wir fetch direkt gegen den internen Docker-Namen/Port
         // Wenn du lokal ohne Docker entwickelst, ersetze das durch http://localhost:8080
-        const setupResp = await fetch(`${BACKEND_INTERNAL_URL}${API_BASE}/setup/status`);
+
+        const backendUrl = env.BACKEND_INTERNAL_URL || 'http://localhost:8080'
+
+        const setupResp = await fetch(`${backendUrl}${API_BASE}/setup/status`);
         if (setupResp.ok) {
             const data = await setupResp.json();
             
@@ -46,6 +49,10 @@ export const handle: Handle = async ({ event, resolve }) => {
             }
         }
     } catch (e) {
+        if (isRedirect(e)) {
+            throw e; 
+        }
+
         // Falls das Backend mal nicht erreichbar ist, ignorieren wir das hier kurz
         console.error("Konnte Setup-Status nicht prüfen:", e);
     }

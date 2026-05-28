@@ -8,12 +8,13 @@ import (
 )
 
 type User struct {
-	ID          uuid.UUID `db:"id" json:"id"`
-	Email       string    `db:"email" json:"email"`
-	Username    string    `db:"username" json:"username"`
-	DisplayName string    `db:"display_name" json:"display_name"`
-	CreatedAt   time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+	ID             uuid.UUID `db:"id" json:"id"`
+	Email          string    `db:"email" json:"email"`
+	Username       string    `db:"username" json:"username"`
+	DisplayName    string    `db:"display_name" json:"display_name"`
+	PermissionRole string    `db:"permission_role" json:"permission_role"`
+	CreatedAt      time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`
 
 	Credentials []Credential `db:"-" json:"-"`
 }

@@ -47,7 +47,24 @@ func (h *RegistrationHandler) BeginRegistration(c *gin.Context) {
 		return
 	}
 
-	user, err := h.store.CreateUser(c.Request.Context(), req.Username, req.DisplayName)
+	isSetup, err := h.store.IsSystemSetup(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Database error"})
+		return
+	}
+
+	role := "user"
+	if !isSetup {
+		role = "admin"
+	} else {
+		invitationToken := c.Query("token")
+		if invitationToken == "" { //|| !isValid(invitationToken) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Registrierung nur per Einladung möglich!"})
+			return
+		}
+	}
+
+	user, err := h.store.CreateUser(c.Request.Context(), req.Username, req.DisplayName, role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
 		return

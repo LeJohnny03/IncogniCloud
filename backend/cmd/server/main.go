@@ -114,13 +114,7 @@ func main() {
 		api.POST("/register/finish", registrationHandler.FinishRegistration)
 		api.POST("/login/begin", authenticationHandler.BeginAuthentication)
 		api.POST("/login/finish", authenticationHandler.FinishAuthentication)
-		api.POST("/logout", authenticationHandler.Logout)
-		api.GET("/health", func(c *gin.Context) {
-			c.JSON(http.StatusOK, HealthResponse{
-				Status:  "ok",
-				Message: "Server is healthy",
-			})
-		})
+
 	}
 
 	protectedAPI := r.Group("/api")
@@ -138,6 +132,13 @@ func main() {
 				"user_id": userID,
 			})
 		})
+		protectedAPI.GET("/health", func(c *gin.Context) {
+			c.JSON(http.StatusOK, HealthResponse{
+				Status:  "ok",
+				Message: "Server is healthy",
+			})
+		})
+		protectedAPI.POST("/logout", authenticationHandler.Logout)
 	}
 
 	if err := r.Run(":8080"); err != nil {

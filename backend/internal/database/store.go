@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -65,20 +66,21 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	return err
 }
 
-func (s *Store) CreateUser(ctx context.Context, username, displayName string) (*models.User, error) {
+func (s *Store) CreateUser(ctx context.Context, username, displayName string, permissionRole string) (*models.User, error) {
 	user := &models.User{
-		ID:          uuid.New(),
-		Username:    username,
-		DisplayName: displayName,
+		ID:             uuid.New(),
+		Username:       username,
+		DisplayName:    displayName,
+		PermissionRole: permissionRole,
 	}
 
 	query := `
-        INSERT INTO users (id, username, display_name)
-        VALUES ($1, $2, $3)
+        INSERT INTO users (id, username, display_name, permission_role)
+        VALUES ($1, $2, $3, $4)
         RETURNING created_at, updated_at
     `
 
-	err := s.db.QueryRowContext(ctx, query, user.ID, user.Username, user.DisplayName).
+	err := s.db.QueryRowContext(ctx, query, user.ID, user.Username, user.DisplayName, user.PermissionRole).
 		Scan(&user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -89,7 +91,7 @@ func (s *Store) CreateUser(ctx context.Context, username, displayName string) (*
 
 func (s *Store) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
-	query := `SELECT id, username, display_name, created_at, updated_at FROM users WHERE username = $1`
+	query := `SELECT id, username, display_name, permission_role, created_at, updated_at FROM users WHERE username = $1`
 
 	err := s.db.GetContext(ctx, &user, query, username)
 	if err != nil {
@@ -104,7 +106,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*models
 
 func (s *Store) GetUserByID(ctx context.Context, userID uuid.UUID) (*models.User, error) {
 	var user models.User
-	query := `SELECT id, username, display_name, created_at, updated_at FROM users WHERE id = $1`
+	query := `SELECT id, username, display_name, permission_role, created_at, updated_at FROM users WHERE id = $1`
 
 	err := s.db.GetContext(ctx, &user, query, userID)
 	if err != nil {
@@ -189,5 +191,7 @@ func (s *Store) IsSystemSetup(ctx context.Context) (bool, error) {
 	var exists bool
 	query := `SELECT EXISTS (SELECT 1 FROM users)`
 	err := s.db.QueryRowContext(ctx, query).Scan(&exists)
+	fmt.Print("Error:", err)
+	fmt.Print(exists)
 	return exists, err
 }

@@ -43,3 +43,56 @@ export async function loginWithPasskey(username: string): Promise<void> {
         throw new Error("Login wurde vom Server abgelehnt.");
     }
 }
+
+export async function registerWithPasskey(username: string, displayName: string): Promise<void> {
+    // 1. Challenge für die Registrierung abholen
+    const beginResp = await fetch(`${API_BASE}/register/begin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username, display_name: displayName })
+    });
+
+    if (!beginResp.ok) throw new Error("Fehler beim Start der Registrierung.");
+    
+    const options = await beginResp.json();
+    
+    // Base64url Decoding für WebAuthn API (Create)
+    options.publicKey.challenge = base64urlDecode(options.publicKey.challenge);
+    options.publicKey.user.id = base64urlDecode(options.publicKey.user.id);
+    if (options.publicKey.excludeCredentials) {
+        options.publicKey.excludeCredentials = options.publicKey.excludeCredentials.map(
+            (cred: any) => ({ ...cred, id: base64urlDecode(cred.id) })
+        );
+    }
+
+    // 2. Browser WebAuthn API aufrufen, um Passkey zu ERSTELLEN
+    const credential = (await navigator.credentials.create(options)) as PublicKeyCredential;
+    const response = credential.response as AuthenticatorAttestationResponse;
+
+    // 3. Daten für das Backend verpacken
+    const attestationResponse = {
+        id: credential.id,
+        rawId: base64urlEncode(credential.rawId),
+        type: credential.type,
+        response: {
+            clientDataJSON: base64urlEncode(response.clientDataJSON),
+            attestationObject: base64urlEncode(response.attestationObject),
+            // Transports sind wichtig für moderne Passkeys (z.B. Handy über Bluetooth)
+            //transports: credential.response.getTransports ? credential.response.getTransports() : []
+        }
+    };
+
+    // 4. Passkey an das Backend senden und Registrierung abschließen
+    const finishResp = await fetch(`${API_BASE}/register/finish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(attestationResponse)
+    });
+
+    if (!finishResp.ok) {
+        const errData = await finishResp.json();
+        throw new Error(errData.error || "Registrierung wurde vom Server abgelehnt.");
+    }
+}

@@ -10,6 +10,7 @@ import (
 
 func AuthMiddleware(store *database.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
+
 		token, err := c.Cookie("auth_session")
 		if err != nil || token == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized - no cookie found"})

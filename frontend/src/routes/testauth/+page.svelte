@@ -11,7 +11,7 @@
 
     let result = $state('');
 
-    const API_BASE = 'http://localhost:8080/api';
+    const API_BASE = '/api';
 
     async function register() {
         try {

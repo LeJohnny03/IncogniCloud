@@ -1,3 +1,16 @@
+- Als Nächstes: User-Settings (Preferences)
+    - Database Table
+    - Speichern nach dem Setup (handlers/setup/finish)
+    - Setup seite 'sperren' wenn das erste Setup durch ist.
+
+- Registrations-Invite
+    - Arbeiten mit tokens.
+    - Wenn kein Token oder kein gültiges Token vorhanden ist, wird die register/begin endpunkt immer Forbidden zurückwerfen.
+    - Sobald der nutzer sich fertig registriert hat, soll eine Bestätigung per Passkey vom Admin verlangt werden, bevor die Registration "finished". Dafür könnte man isSetup bool nutzen.
+
+- Admin-Panel
+    - Hier können dann die Setup Einstellungen überarbeitet werden, oder die Cloud Zurücksetzen und ein neues Setup starten (Dafür muss die Setup subpage dann temporär entsperrt werden)
+
 - Sobald die Anwendung fertig ist und auf dem NAS läuft, muss auf dem NAS ein Reverse Proxy installiert werden (bsp. Caddy oder Nginx Proxy Manager), auf einem seperaten Container
     - Dieser Proxy lauscht auf Port 80/443, übernimmt die Tailscale-Domain und leitet den Traffic auf den incognicloud_frontend Container (Port 3000) weiter.
         - Das Backend (Port 8080) muss ab dem Punkt auch nicht mehr ins Netz gestellt werden, da der Proxy die /api/ Routen direkt intern an das Backend weiterleiten kann.

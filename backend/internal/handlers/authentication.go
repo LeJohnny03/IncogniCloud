@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"backend/internal/database"
 
@@ -69,7 +70,7 @@ func (h *AuthenticationHandler) BeginAuthentication(c *gin.Context) {
 	sessionID := uuid.New().String()
 	h.sessions[sessionID] = sessionData
 
-	c.SetCookie("auth_session", sessionID, 300, "/", "", true, true)
+	c.SetCookie("webauthn_challenge", sessionID, 300, "/", "", true, true)
 
 	c.JSON(http.StatusOK, options)
 
@@ -77,7 +78,7 @@ func (h *AuthenticationHandler) BeginAuthentication(c *gin.Context) {
 
 func (h *AuthenticationHandler) FinishAuthentication(c *gin.Context) {
 
-	sessionID, err := c.Cookie("auth_session")
+	sessionID, err := c.Cookie("webauthn_challenge")
 
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "No authentication session"})
@@ -131,7 +132,6 @@ func (h *AuthenticationHandler) FinishAuthentication(c *gin.Context) {
 			"error":  "Credential may be cloned",
 			"action": "contact_support",
 		})
-
 		return
 
 	}
@@ -148,6 +148,27 @@ func (h *AuthenticationHandler) FinishAuthentication(c *gin.Context) {
 		return
 	}
 
+	c.SetCookie("webauthn_challenge", "", -1, "/", "", true, true)
+
+	// Create a secure database session
+
+	sessionToken, err := database.GenerateSecureToken(32)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate session token"})
+		return
+	}
+
+	expiresAt := time.Now().UTC().Add(2 * time.Hour)
+	maxAgeSeconds := int(2 * 60 * 60) // 2 hours in seconds
+
+	err = h.store.CreateSession(c.Request.Context(), user.ID, sessionToken, expiresAt)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session to database"})
+		return
+	}
+
+	c.SetCookie("auth_session", sessionToken, maxAgeSeconds, "/", "", true, true)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success":  true,
 		"user_id":  user.ID,
@@ -157,6 +178,11 @@ func (h *AuthenticationHandler) FinishAuthentication(c *gin.Context) {
 }
 
 func (h *AuthenticationHandler) Logout(c *gin.Context) {
+	token, err := c.Cookie("auth_session")
+
+	if err == nil && token != "" {
+		_ = h.store.DeleteSession(c.Request.Context(), token)
+	}
 	c.SetCookie("auth_session", "", -1, "/", "", true, true)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }

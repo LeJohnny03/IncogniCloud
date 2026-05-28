@@ -3,8 +3,11 @@ package database
 import (
 	"backend/internal/models"
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -16,6 +19,50 @@ type Store struct {
 
 func NewStore(db *sqlx.DB) *Store {
 	return &Store{db: db}
+}
+
+type AuthSession struct {
+	SessionToken string
+	UserID       uuid.UUID
+	ExpiresAt    time.Time
+}
+
+func GenerateSecureToken(length int) (string, error) {
+
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	return base64.URLEncoding.EncodeToString(b), nil
+
+}
+
+func (s *Store) GetSession(ctx context.Context, token string) (*AuthSession, error) {
+	query := `SELECT session_token, user_id, expires_at FROM auth_sessions WHERE session_token = $1`
+
+	var session AuthSession
+	err := s.db.QueryRowContext(ctx, query, token).Scan(
+		&session.SessionToken,
+		&session.UserID,
+		&session.ExpiresAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+func (s *Store) CreateSession(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
+	query := `INSERT INTO auth_sessions (user_id, session_token, expires_at) VALUES ($1, $2, $3)`
+	_, err := s.db.ExecContext(ctx, query, userID, token, expiresAt)
+	return err
+}
+
+func (s *Store) DeleteSession(ctx context.Context, token string) error {
+	query := `DELETE FROM auth_sessions WHERE session_token = $1`
+	_, err := s.db.ExecContext(ctx, query, token)
+	return err
 }
 
 func (s *Store) CreateUser(ctx context.Context, username, displayName string) (*models.User, error) {
@@ -136,4 +183,11 @@ func (s *Store) GetCredentialByID(ctx context.Context, credID []byte) (*models.C
 	}
 
 	return &cred, nil
+}
+
+func (s *Store) IsSystemSetup(ctx context.Context) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS (SELECT 1 FROM users)`
+	err := s.db.QueryRowContext(ctx, query).Scan(&exists)
+	return exists, err
 }

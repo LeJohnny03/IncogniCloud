@@ -105,8 +105,11 @@ func main() {
 		c.Next()
 	})
 
+	setupHandler := handlers.NewSetupHandler(store)
+
 	api := r.Group("/api")
 	{
+		api.GET("/setup/status", setupHandler.Status)
 		api.POST("/register/begin", registrationHandler.BeginRegistration)
 		api.POST("/register/finish", registrationHandler.FinishRegistration)
 		api.POST("/login/begin", authenticationHandler.BeginAuthentication)
@@ -116,6 +119,23 @@ func main() {
 			c.JSON(http.StatusOK, HealthResponse{
 				Status:  "ok",
 				Message: "Server is healthy",
+			})
+		})
+	}
+
+	protectedAPI := r.Group("/api")
+	protectedAPI.Use(handlers.AuthMiddleware(store))
+	{
+		protectedAPI.GET("/me", func(c *gin.Context) {
+			userID, exists := c.Get("user_id")
+			if !exists {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "User ID not found in context"})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Du bist sicher authentifiziert!",
+				"user_id": userID,
 			})
 		})
 	}

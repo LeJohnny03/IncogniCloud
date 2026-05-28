@@ -2,3 +2,63 @@
     - Dieser Proxy lauscht auf Port 80/443, übernimmt die Tailscale-Domain und leitet den Traffic auf den incognicloud_frontend Container (Port 3000) weiter.
         - Das Backend (Port 8080) muss ab dem Punkt auch nicht mehr ins Netz gestellt werden, da der Proxy die /api/ Routen direkt intern an das Backend weiterleiten kann.
 
+Du suchst nach dem echten "Plug & Play"-Gefühl, wie man es von fertigen Produkten kennt.
+
+In der Self-Hosted-Welt gibt es dafür im Wesentlichen drei professionelle Wege, wie man das für den Endnutzer extrem komfortabel gestaltet.
+
+Hier sind die Optionen, gestaffelt nach Aufwand und "Coolness-Faktor":
+
+Weg 1: Der "One-Liner" (Das interaktive Setup-Skript)
+Das ist der absolute Industrie-Standard für moderne Server-Software (wie Pi-hole, Docker selbst oder Nextcloud AIO).
+Der Nutzer muss nur einen einzigen Befehl in sein Terminal kopieren, z. B.:
+curl -sSL https://get.incognicloud.com | bash
+
+Was dieses Skript dann vollautomatisch macht:
+
+Es schaut nach: "Ist Docker installiert?" -> Wenn nein, installiert es Docker automatisch.
+
+Es zeigt ein kleines, farbiges Text-Menü im Terminal:
+
+"Willkommen beim IncogniCloud Installer!"
+
+"Auf welchem Pfad sollen die Daten gespeichert werden? (Standard: /opt/incognicloud):"
+
+Es lädt im Hintergrund deine docker-compose.yml herunter.
+
+Es generiert automatisch sichere, zufällige Passwörter für die Datenbank und schreibt sie in eine unsichtbare .env Datei.
+
+Es startet docker-compose up -d.
+
+Am Ende steht da: "🎉 Installation erfolgreich! Öffne nun deinen Browser unter http://[IP-Adresse des Servers] um den Setup-Wizard abzuschließen."
+
+Vorteil: Extrem einfach zu programmieren (ein einfaches Bash-Skript) und löst 99% der Probleme für Nutzer.
+
+Weg 2: Heimserver "App Stores" (CasaOS, Umbrel, Unraid)
+Die meisten Leute, die sich heute einen Heimserver bauen, nutzen keine nackte Linux-Konsole mehr. Sie installieren Betriebssysteme wie CasaOS, Umbrel oder Unraid. Diese Systeme haben einen eingebauten App-Store, der genau so funktioniert wie auf dem Smartphone.
+
+Wie das für dich funktioniert:
+Anstatt dass der Nutzer irgendetwas tippen muss, schreibst du eine kleine Konfigurationsdatei (ein sogenanntes "App Manifest") und reichst es bei CasaOS oder Umbrel ein.
+Deine Cloud taucht dann dort im Store auf. Der Nutzer klickt einfach auf "Installieren", wählt im schönen UI seine Festplatten aus, und das System im Hintergrund macht den Rest mit Docker.
+Vorteil: Das ist das absolute Premium-Erlebnis. 1-Klick-Installation.
+
+Weg 3: Ein eigenes CLI-Tool in Go (Der Apple-Weg)
+Da du dein Backend in Go schreibst, kannst du das ausnutzen! Go kompiliert zu einer einzigen, ausführbaren Datei (ohne Abhängigkeiten).
+Du könntest ein Tool bauen, das der Nutzer einfach herunterlädt (incogni-installer.exe für Windows oder incogni für Linux).
+
+Wenn er es per Doppelklick (oder im Terminal mit ./incogni install) startet, übernimmt dein Go-Programm die komplette Arbeit: Es lädt die Docker-Images herunter, orchestriert das Netzwerk, richtet den Tailscale-Tunnel ein und startet den Server.
+Tools wie PocketBase machen das so.
+
+Mein Vorschlag für deinen Masterplan:
+Ich würde dir empfehlen, eine Mischung aus Weg 1 und der Einbindung in die App Stores anzustreben, da du damit die größte Zielgruppe erreichst und es perfekt zu unserer geplanten Web-UI-Setup-Seite passt.
+
+Der Workflow für den Nutzer wäre dann phänomenal einfach:
+
+Er kopiert einen einzigen Befehl ins Terminal (oder klickt auf Installieren in CasaOS).
+
+Das System startet. Keine Fragen nach Passwörtern, keine .env Dateien.
+
+Er öffnet den Browser.
+
+Dein Setup-Wizard (den wir eben besprochen haben) begrüßt ihn, lässt ihn den Master-Admin (Passkey) anlegen und fragt, welche der gefundenen Festplatten genutzt werden sollen.
+
+Wollen wir testweise mal so ein interaktives Installations-Skript (Weg 1) skizzieren, damit du siehst, wie einfach du den Nutzern die manuelle Docker-Arbeit abnehmen kannst?

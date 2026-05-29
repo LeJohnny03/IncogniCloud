@@ -9,7 +9,8 @@ export default defineConfig({
         port: 5173,
         proxy: {
             '/api': {
-                target: 'http://localhost:8080', // Sobald Prod: 'http://backend:8080'
+                target: 'http://localhost:8080', 
+                //target: 'http://backend:8080',
                 changeOrigin: true,
             }
         }

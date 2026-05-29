@@ -32,9 +32,9 @@ export const handle: Handle = async ({ event, resolve }) => {
         // Da wir im Server-Hook sind, nutzen wir fetch direkt gegen den internen Docker-Namen/Port
         // Wenn du lokal ohne Docker entwickelst, ersetze das durch http://localhost:8080
 
-        const backendUrl = env.BACKEND_INTERNAL_URL || 'http://localhost:8080'
+        const backendUrl = env.BACKEND_INTERNAL_URL || 'http://backend:8080'
 
-        const setupResp = await fetch(`${backendUrl}${API_BASE}/setup/status`);
+        const setupResp = await fetch(`${backendUrl}/api/setup/status`);
         if (setupResp.ok) {
             const data = await setupResp.json();
             

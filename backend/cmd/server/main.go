@@ -139,6 +139,7 @@ func main() {
 			})
 		})
 		protectedAPI.POST("/logout", authenticationHandler.Logout)
+		protectedAPI.POST("/setup/finish", setupHandler.Finish)
 	}
 
 	if err := r.Run(":8080"); err != nil {

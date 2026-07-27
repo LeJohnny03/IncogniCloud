@@ -195,3 +195,12 @@ func (s *Store) IsSystemSetup(ctx context.Context) (bool, error) {
 	fmt.Print(exists)
 	return exists, err
 }
+
+func (s *Store) SaveUserPreferences(ctx context.Context, prefernces []byte) error {
+	query := `
+		INSERT INTO user_preferences (preferences)
+		VALUES ($1)
+	`
+	_, err := s.db.ExecContext(ctx, query, prefernces)
+	return err
+}

@@ -56,8 +56,7 @@
         error = "";
         
         const setupConfig = {
-            adminUsername,
-            storageDrive: selectedStorageDrive,
+            storageDrive: [selectedStorageDrive],
             storageFolder,
             enableBackups,
             backupDrive: selectedBackupDrive,
